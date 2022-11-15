@@ -13,7 +13,7 @@ from tkinter import *
 # base_url = 'https://dailyaudiobooks.com/agatha-christie-and-then-there-were-none-audiobook/'
 
 root = Tk()
-root.geometry("400x590")
+root.geometry("400x610")
 root.title(" Audiobook Downloader ")
 
 def getBookURL(url):
@@ -27,6 +27,35 @@ def getBookURL(url):
         if url123.endswith(".mp3"):
             break
     return(url123)
+
+def getAB_BookURL(url):
+    url = url.replace("\n", "")
+    url = url.replace(" ", "")
+    url.rstrip('/')
+    urlList = []
+    r = requests.get(url)
+    for line in r.text.splitlines():
+        if line.find('"chapter_link_dropbox": "') != -1:
+            urlList.append("".join("https://files.audiobookss.com/audio/"+line[45:-2]))
+    urlList.pop(0)
+    
+    val = urlList[0]
+    num_Titles = len(urlList)
+    book_Name = val[36:(val.find("\\"))] # Get book title from URL
+    book_Name = book_Name.replace(" ","_")
+    book_Name = book_Name.replace("-","_")
+
+    urlCount = 0
+    for val in urlList:
+        while(val.find('\\') != -1):
+            val = val[:val.find('\\')]+val[val.find('\\')+1:]   
+        urlList[urlCount]=val
+        urlCount += 1
+
+    for count in range(1, num_Titles+1):
+        filename="".join([str(count),"_",book_Name,".mp3"])
+        urls.append([filename,urlList[count-1]])
+    return (num_Titles)   
 
 def url_checker(url):
 	try:
@@ -71,7 +100,7 @@ def fetch_url(entry):
     return path
 
 def build_url_list():
-    for count in range(1, num_Titles):
+    for count in range(1, num_Titles+1):
         if(count<10 and leading_Zero):
             filename="".join([str(count),"_",book_Name,".mp3"]) 
             url_dl = "".join([base_url,"/","0",str(count),".mp3"])
@@ -79,47 +108,74 @@ def build_url_list():
             filename="".join([str(count),"_",book_Name,".mp3"])
             url_dl = "".join([base_url,"/",str(count),".mp3"])
         urls.append([filename,url_dl])
-    return urls
+    return
+
+def buildAB_url_list(urlList):
+    val = urlList[0]
+    book_Name = val[36:(val.find("\\"))] # Get book title from URL
+    book_Name = book_Name.replace(" ","_")
+    book_Name = book_Name.replace("-","_")
+
+    for count in range(1, num_Titles+1):
+        filename="".join([str(count),"_",book_Name,".mp3"])
+        urls.append([filename,urlList[count-1]])
+    return
 
 def do_stuff(base_url):
     global urls
     global num_Titles
-    # urls = []
-    # num_Titles = 1
     global good_URL
+    global AB_Books
 
-    book_url = getBookURL(base_url)
-    base_url = parse_url(book_url)
-    good_URL = True
-    urls = []
-    num_Titles = 1
-
-    start = timer()
-    while(good_URL):
-        url_dl = ""
-        if(num_Titles<10 and leading_Zero):
-            url_dl = "".join([base_url,"/","0",str(num_Titles),".mp3"])
-        else:
-            url_dl = "".join([base_url,"/",str(num_Titles),".mp3"])
+    if base_url.find("audiobookss.com") != -1:
+        AB_Books = True
+        urls = []
+        start = timer()
+        num_Titles = getAB_BookURL(base_url)
         
-        good_URL = url_checker(url_dl)
-        if good_URL:
-            num_Titles += 1
-    print(f"Time to scan links: {timer() - start}")
-    print("Links found: "+str(num_Titles-1)+" - Starting download.")
-    Output.insert(END, f"Time to scan links: {timer() - start}" + '\n')
-    Output.update()
-    Output.insert(END, "Links found: "+str(num_Titles-1)+"\n...Starting download..." + '\n\n')
-    Output.update()
+        # buildAB_url_list(urlList) # Create Name / URL list
 
-    urls = build_url_list()
+        print(f"Time to scan links: {timer() - start}")
+        print("Links found: "+str(num_Titles)+" - Starting download.")
+        Output.insert(END, f"Time to scan links: {timer() - start}" + '\n')
+        Output.update()
+        Output.insert(END, "Links found: "+str(num_Titles)+"\n...Starting download..." + '\n\n')
+        Output.update()
+    else:
+        book_url = getBookURL(base_url)
+        AB_Books = False
+        base_url = parse_url(book_url)
+        good_URL = True
+        urls = []
+        num_Titles = 1
+
+        start = timer()
+        while(good_URL):
+            url_dl = ""
+            if(num_Titles<10 and leading_Zero):
+                url_dl = "".join([base_url,"/","0",str(num_Titles),".mp3"])
+            else:
+                url_dl = "".join([base_url,"/",str(num_Titles),".mp3"])
+            
+            good_URL = url_checker(url_dl)
+            if good_URL:
+                num_Titles += 1
+        num_Titles -= 1
+        print(f"Time to scan links: {timer() - start}")
+        print("Links found: "+str(num_Titles)+" - Starting download.")
+        Output.insert(END, f"Time to scan links: {timer() - start}" + '\n')
+        Output.update()
+        Output.insert(END, "Links found: "+str(num_Titles)+"\n...Starting download..." + '\n\n')
+        Output.update()
+        build_url_list() # Create Name / URL list
+
     start = timer()
     results = ThreadPool(8).imap_unordered(fetch_url, urls)
     dl_Count = 0
     for path in results:
         dl_Count += 1
-        print(str(dl_Count) +"/" + str(num_Titles-1) + " - " + path)
-        Output.insert(END, str(dl_Count) +"/" + str(num_Titles-1) + " - " + path + '\n')
+        print(str(dl_Count) +"/" + str(num_Titles) + " - " + path)
+        Output.insert(END, str(dl_Count) +"/" + str(num_Titles) + " - " + path + '\n')
         Output.update()
     Output.insert(END, f"Time to download files: {timer() - start}" + '\n\n')
     Output.insert(END, "Done!" + '\n\n')
@@ -132,7 +188,7 @@ def Take_input():
     INPUT = inputtxt.get("1.0", "end-1c")
     do_stuff(INPUT)
      
-lab1 = Label(text = "Valid sites\nhttps://dailyaudiobooks.com/\nhttps://goldenaudiobooks.com/")
+lab1 = Label(text = "Valid sites\nhttps://dailyaudiobooks.com/\nhttps://goldenaudiobooks.com/\nhttps://audiobookss.com/")
 lab2 = Label(text = "Enter URL: ")
 inputtxt = Text(root, height = 3,
                 width = 45,
